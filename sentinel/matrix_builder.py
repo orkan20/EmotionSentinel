@@ -1,3 +1,4 @@
+# TODO: not yet integrated into SentinelPipeline (see docs/decisions.md)
 from __future__ import annotations
 
 from sentinel.models import Memory, ProcessedClause, SentinelInput

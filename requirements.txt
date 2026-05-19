@@ -1,0 +1,12 @@
+# Core pipeline
+spacy
+transformers
+torch
+
+# After installing, also run:
+#   python -m spacy download en_core_web_sm
+
+# Optional, exploratory only (Code/Sentinel.py sketches)
+# tensorboard
+# matplotlib
+# numpy

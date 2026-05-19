@@ -1,3 +1,4 @@
+# TODO: Importance/Cessation Algorithm — not yet integrated into SentinelPipeline (see docs/decisions.md)
 from __future__ import annotations
 
 from sentinel.config import ThresholdConfig
