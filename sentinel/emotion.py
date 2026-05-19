@@ -130,3 +130,122 @@ class MockEmotionalModel(EmotionalModel):
             clauses=matrix_clauses,
             memories=memories
         )
+
+
+class EmollamaEmotionalModel(EmotionalModel):
+    """Real emotional scorer using lzw1008/Emollama-chat-7b from Hugging Face.
+
+    Loads tokenizer + model lazily on first evaluate() call so importing this
+    module doesn't require transformers/torch at install time — only at use.
+    First call downloads ~14GB; subsequent calls reuse the loaded model.
+    Returns a DocumentMatrix wrapping a single ProcessedClauseMatrix scored
+    from the LLM's JSON output, clamped to the spec's ranges. Parse failures
+    yield zero matrices with a felt_reason explaining what went wrong, so the
+    pipeline keeps moving instead of crashing.
+    """
+
+    DEFAULT_MODEL = "lzw1008/Emollama-chat-7b"
+    SYSTEM_PROMPT = (
+        "You are an emotional scoring model. Score text on valence, arousal, "
+        "and importance."
+    )
+    USER_TEMPLATE = (
+        "Score the following text on valence (-1.0 to 1.0), arousal (0.0 to 1.0), "
+        "and importance (0.0 to 1.0). Return only a JSON object with those three "
+        "fields and nothing else.\nText: {text}"
+    )
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL,
+        max_new_tokens: int = 200,
+    ) -> None:
+        self.model_name = model_name
+        self.max_new_tokens = max_new_tokens
+        self._tokenizer = None
+        self._model = None
+
+    def _ensure_loaded(self) -> None:
+        if self._model is not None:
+            return
+        # Defer transformers/torch imports so module import doesn't require them.
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self._model = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            device_map="auto",
+            torch_dtype="auto",
+        )
+
+    def _generate(self, clause_text: str) -> str:
+        self._ensure_loaded()
+        user = self.USER_TEMPLATE.format(text=clause_text)
+        prompt = f"[INST] <<SYS>>\n{self.SYSTEM_PROMPT}\n<</SYS>>\n\n{user} [/INST]"
+        inputs = self._tokenizer(prompt, return_tensors="pt").to(self._model.device)
+        outputs = self._model.generate(**inputs, max_new_tokens=self.max_new_tokens)
+        decoded = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # Strip echoed prompt; keep only the post-[/INST] response.
+        if "[/INST]" in decoded:
+            decoded = decoded.split("[/INST]", 1)[1]
+        return decoded.strip()
+
+    def _parse_scores(self, response: str) -> tuple[float, float, float, str]:
+        # Returns (valence, arousal, importance, felt_reason). Defaults to
+        # zeros + a diagnostic reason if the LLM didn't emit clean JSON.
+        match = re.search(r"\{[^{}]*\}", response, re.DOTALL)
+        if match is None:
+            return 0.0, 0.0, 0.0, f"emollama parse failed: no JSON object in {response[:120]!r}"
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError as exc:
+            return 0.0, 0.0, 0.0, f"emollama parse failed: {exc}; raw={match.group(0)[:120]!r}"
+        valence = _clamp(_as_float(data.get("valence"), 0.0), -1.0, 1.0)
+        arousal = _clamp(_as_float(data.get("arousal"), 0.0), 0.0, 1.0)
+        importance = _clamp(_as_float(data.get("importance"), 0.0), 0.0, 1.0)
+        return valence, arousal, importance, "scored by Emollama-chat-7b"
+
+    def evaluate(
+        self,
+        clause_text: str,
+        depth: DepthScore,
+        intent: Optional[str] = None,
+        statement: Optional[str] = None,
+    ) -> DocumentMatrix:
+        response = self._generate(clause_text)
+        valence, arousal, importance, reason = self._parse_scores(response)
+
+        em = EmotionalMatrix(
+            valence=valence,
+            arousal=arousal,
+            importance=importance,
+            summary=clause_text[:240],
+            felt_reason=reason,
+        )
+        seg = ProcessedClauseMatrix(
+            text=clause_text.strip(),
+            depth=float(depth.raw),
+            matrix=em,
+        )
+        return DocumentMatrix(
+            matrix_id=str(uuid4()),
+            auto_generated=True,
+            depth=float(depth.raw),
+            intent=intent,
+            statement=statement,
+            clauses=[seg],
+            memories=[],
+        )
+
+
+def _clamp(x: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, x))
+
+
+def _as_float(value, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
