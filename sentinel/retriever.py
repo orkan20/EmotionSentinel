@@ -1,4 +1,3 @@
-# TODO: retrieval not yet wired into DocumentMatrix.memories (see docs/decisions.md)
 from __future__ import annotations
 
 from datetime import datetime, timezone

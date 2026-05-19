@@ -10,13 +10,16 @@ from sentinel.emotion import EmotionalModel, MockEmotionalModel
 from sentinel.matrix_builder import MatrixBuilder
 from sentinel.memory_store import SQLiteMemoryStore
 from sentinel.models import (
+    ProcessedClause,
     ProcessedClauseMatrix,
     StoredMemoryMatrix,
     DocumentMatrix,
     DepthScore,
     EmotionalMatrix,
+    Memory,
     RouteAction,
     Sender,
+    SentinelInput,
 )
 from sentinel.retriever import MemoryRetriever
 from sentinel.segmenter import ClauseSegmenter, SpacyClauseSegmenter
@@ -54,10 +57,23 @@ class SentinelPipeline:
         reflection_depth: int = 0,
     ) -> DocumentMatrix:
         """Process input text and return document-level IBRoREM matrix structure."""
-        
+
+        # Build a SentinelInput so the memory store has a stable record of
+        # which input each persisted memory came from.
+        sentinel_input = SentinelInput(
+            text=text, sender=sender, session_id=session_id
+        )
+
+        # Per spec: "retrieval is the orchestration layer's responsibility —
+        # resolved before input reaches the emotional model." Pull top-K
+        # relevant memories now; they ride along in DocumentMatrix.memories
+        # for downstream consumers (Voice LLM).
+        retrieved = self.retriever.retrieve(text)
+        memory_matrices = [_memory_to_stored(m) for m in retrieved]
+
         # Segment into clauses
         segment_clauses = self.segmenter.segment(text, "process")
-        
+
         # Score each clause with emotional model (DocumentMatrix per clause)
         clause_matrices = []
         for i, clause in enumerate(segment_clauses):
@@ -102,6 +118,24 @@ class SentinelPipeline:
             )
 
             clause_matrices.append(seg_matrix)
+
+            # Cessation/write authority: per spec, "only the importance/
+            # cessation algorithm writes to the database, and only when the
+            # memory threshold is cleared." That maps to route_action being
+            # MEMORY or SPEECH_AND_MEMORY here.
+            if route_action in (RouteAction.MEMORY, RouteAction.SPEECH_AND_MEMORY):
+                processed = ProcessedClause(
+                    clause=clause,
+                    depth=depth_score,
+                    emotional_matrix=em,
+                    action=route_action,
+                )
+                embedding = self.embedding_model.embed(clause.text)
+                self.memory_store.write_memory(
+                    sentinel_input=sentinel_input,
+                    processed_clause=processed,
+                    embedding=embedding,
+                )
         
         # Compute document-level depth (max of all clauses)
         doc_depth = max((c.depth for c in clause_matrices), default=0.0)
@@ -136,9 +170,25 @@ class SentinelPipeline:
             intent=None,
             statement=None,
             clauses=clause_matrices,
-            memories=[],
+            memories=memory_matrices,
             document_score=document_score,
             document_route_action=document_route_action,
         )
 
         return doc_matrix
+
+
+def _memory_to_stored(memory: Memory) -> StoredMemoryMatrix:
+    """Adapt a persisted Memory row to the StoredMemoryMatrix shape used in
+    DocumentMatrix.memories. Keeps the heavy fields (embedding, source_text)
+    off the document; downstream code can re-query memory_store by matrix_id
+    if it needs more detail."""
+    return StoredMemoryMatrix(
+        matrix_id=str(memory.id),
+        ref=memory.clause_text,
+        importance=memory.importance,
+        valence=memory.valence,
+        arousal=memory.arousal,
+        summary=memory.summary,
+        felt_reason=memory.felt_reason,
+    )
