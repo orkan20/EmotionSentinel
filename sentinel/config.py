@@ -5,8 +5,21 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ThresholdConfig:
+    # Fixed-mode thresholds. Ordering must be silence <= speech <= memory.
+    silence_importance: float = 0.20
     speech_importance: float = 0.45
     memory_importance: float = 0.70
+
+    # Fluid self-tuning (per docs/decisions.md "Threshold Fluidity"). When True,
+    # the evaluator's observe() feeds a rolling window of importance scores and
+    # recomputes the three thresholds as percentiles over that window once
+    # fluid_min_samples observations have accumulated.
+    fluid: bool = False
+    fluid_window: int = 200
+    fluid_min_samples: int = 50
+    fluid_silence_pct: float = 20.0
+    fluid_speech_pct: float = 60.0
+    fluid_memory_pct: float = 90.0
 
 
 @dataclass(frozen=True)
