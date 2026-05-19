@@ -1,4 +1,4 @@
-# TODO: Voice LLM stage — not yet integrated into SentinelPipeline (see docs/decisions.md)
+# Used by MistralDepthModel (sentinel/depth.py). Will also back the Voice LLM stage when implemented (see docs/decisions.md).
 from __future__ import annotations
 
 import json
