@@ -56,6 +56,8 @@ Each clause and the full source text are scored on three axes:
 
 Depth feeds into importance specifically, not valence. A structurally tense clause carries more weight, not a different emotional direction.
 
+> **Correction (user, 2026-05-19):** Depth also determines the **number of entries (data points)** per clause in the matrix JSON — i.e. `clauses[].entries[]` length is depth-driven. Higher depth → more I/V/A points captured per clause to represent the structural complexity. Exact depth→entry-count mapping not yet specified; pending the rest of the truncated decisions log.
+
 ### Scoring Granularity
 - Each matrix covers a single clause
 - A separate document-level matrix scores the full source text holistically (not an average of clause scores)
