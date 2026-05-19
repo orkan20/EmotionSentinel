@@ -105,16 +105,40 @@ class SentinelPipeline:
         
         # Compute document-level depth (max of all clauses)
         doc_depth = max((c.depth for c in clause_matrices), default=0.0)
-        
-        # Build document matrix with intent/statement
+
+        # Document-level holistic emotional score. Per spec, this is a separate
+        # evaluation over the full source text — not aggregated from clauses.
+        doc_depth_score = DepthScore(raw=doc_depth, normalized=doc_depth)
+        doc_eval = self.emotional_model.evaluate(
+            clause_text=text,
+            depth=doc_depth_score,
+            intent=None,
+            statement=None,
+        )
+        if doc_eval.clauses:
+            document_score = EmotionalMatrix(
+                valence=float(doc_eval.clauses[0].matrix.valence),
+                arousal=float(doc_eval.clauses[0].matrix.arousal),
+                importance=float(doc_eval.clauses[0].matrix.importance),
+            )
+        else:
+            document_score = EmotionalMatrix(valence=0.0, arousal=0.0, importance=0.0)
+
+        # Spec: document score is "the primary input to the importance
+        # threshold gate." Feed the rolling window and gate the document.
+        self.thresholds.observe(document_score.importance)
+        document_route_action = self.thresholds.route(document_score)
+
         doc_matrix = DocumentMatrix(
             matrix_id=str(uuid.uuid4()),
             auto_generated=True,
             depth=doc_depth,
-            intent=None,  # Can be set based on text analysis later
-            statement=None,  # Can be set based on text analysis later
+            intent=None,
+            statement=None,
             clauses=clause_matrices,
-            memories=[]  # Empty for demo; would load from database in production
+            memories=[],
+            document_score=document_score,
+            document_route_action=document_route_action,
         )
-        
+
         return doc_matrix

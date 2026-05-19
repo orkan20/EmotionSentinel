@@ -134,6 +134,14 @@ class DocumentMatrix:
     statement: Optional[str] = None
     clauses: List[ProcessedClauseMatrix] = field(default_factory=list)
     memories: List[StoredMemoryMatrix] = field(default_factory=list)
+    # Holistic document-level emotional score. Per docs/decisions.md, this is
+    # NOT an average of clause scores — it comes from a separate evaluation
+    # over the full source text and is "the primary input to the importance
+    # threshold gate." Field name matches the spec's Matrix JSON Schema.
+    document_score: EmotionalMatrix = field(
+        default_factory=lambda: EmotionalMatrix(valence=0.0, arousal=0.0, importance=0.0)
+    )
+    document_route_action: RouteAction = RouteAction.SILENCE
 
 
 @dataclass(frozen=True)
