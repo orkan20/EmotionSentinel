@@ -15,6 +15,7 @@ from sentinel.models import (
     DocumentMatrix,
     DepthScore,
     EmotionalMatrix,
+    RouteAction,
     Sender,
 )
 from sentinel.retriever import MemoryRetriever
@@ -73,23 +74,33 @@ class SentinelPipeline:
             # Extract the clause matrix from the returned DocumentMatrix
             # For individual clause scoring, take the first element in clauses array
             if doc_result.clauses:
-                seg_matrix = ProcessedClauseMatrix(
-                    text=doc_result.clauses[0].text,
-                    depth=float(doc_result.clauses[0].depth),
-                    matrix=EmotionalMatrix(
-                        valence=float(doc_result.clauses[0].matrix.valence),
-                        arousal=float(doc_result.clauses[0].matrix.arousal),
-                        importance=float(doc_result.clauses[0].matrix.importance)
-                    )
+                eval_clause = doc_result.clauses[0]
+                em = EmotionalMatrix(
+                    valence=float(eval_clause.matrix.valence),
+                    arousal=float(eval_clause.matrix.arousal),
+                    importance=float(eval_clause.matrix.importance),
                 )
+                clause_text = eval_clause.text
+                clause_depth = float(eval_clause.depth)
             else:
-                # Fallback if empty (shouldn't happen in production)
-                seg_matrix = ProcessedClauseMatrix(
-                    text=clause.text,
-                    depth=depth_score.raw,
-                    matrix=EmotionalMatrix()
-                )
-            
+                # Fallback if the emotional model returned no clauses.
+                # Previously constructed EmotionalMatrix() with no args, which
+                # would raise on the required fields — fixed here.
+                em = EmotionalMatrix(valence=0.0, arousal=0.0, importance=0.0)
+                clause_text = clause.text
+                clause_depth = depth_score.raw
+
+            # Feed the rolling window (no-op in fixed mode) and gate the clause.
+            self.thresholds.observe(em.importance)
+            route_action = self.thresholds.route(em)
+
+            seg_matrix = ProcessedClauseMatrix(
+                text=clause_text,
+                depth=clause_depth,
+                matrix=em,
+                route_action=route_action,
+            )
+
             clause_matrices.append(seg_matrix)
         
         # Compute document-level depth (max of all clauses)

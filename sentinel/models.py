@@ -107,7 +107,8 @@ class ProcessedClauseMatrix:
     text: str
     depth: float
     matrix: EmotionalMatrix
-    source_type: str = "input"  # Always "input" for this data type (must be last due to default)
+    source_type: str = "input"
+    route_action: RouteAction = RouteAction.SILENCE
 
 
 @dataclass(frozen=True)
