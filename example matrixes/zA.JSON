@@ -1,0 +1,30 @@
+{
+  "matrix_id": "zA",
+  "auto_generated": false,
+  "context": "helping with files",
+  "depth": 2,
+  
+  "Entries": {
+    "0": {
+      "ref": "xA",
+      "importance": 0.9,
+      "valence": 0,
+      "arousal": 0
+      },
+
+    "1": {
+      "ref": "yB",
+      "importance": 0.5,
+      "valence": -0.15,
+      "arousal": 0
+      },
+
+
+    "2": {
+      "ref": "yC",
+      "importance": 0.5,
+      "valence": 0.25,
+      "arousal": 0
+      }
+    }
+}
