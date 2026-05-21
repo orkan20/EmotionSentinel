@@ -19,7 +19,11 @@ class MemoryRetriever:
         self.embedding_model = embedding_model
         self.config = config or RetrievalConfig()
 
-    def retrieve(self, query_text: str) -> list[Memory]:
+    def retrieve(
+        self,
+        query_text: str,
+        count_override: int | None = None,
+    ) -> list[Memory]:
         query_embedding = self.embedding_model.embed(query_text)
         memories = self.store.list_memories()
         ranked = sorted(
@@ -27,7 +31,9 @@ class MemoryRetriever:
             key=lambda memory: self._score(memory, query_embedding),
             reverse=True,
         )
-        selected = ranked[: self.config.limit]
+        count = count_override if count_override is not None else self.config.limit
+        count = max(0, count)
+        selected = ranked[:count]
         self.store.mark_accessed([memory.id for memory in selected])
         return selected
 

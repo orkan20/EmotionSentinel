@@ -26,6 +26,12 @@ class ThresholdConfig:
 class DepthConfig:
     normalization_k: float = 10.0
 
+    # Upper bound on the document-level depth aggregate (sum of per-clause
+    # depths). Governs the maximum boost to retrieval count via
+    # sentinel.depth_aggregation.aggregate_document_depth. Default is a
+    # placeholder; tune after a calibration corpus exists.
+    max_doc_depth: int = 20
+
 
 @dataclass(frozen=True)
 class ReflectionConfig:
@@ -36,6 +42,10 @@ class ReflectionConfig:
 @dataclass(frozen=True)
 class RetrievalConfig:
     limit: int = 5
+    # Floor for depth-driven retrieval count: pipeline retrieves
+    # base_count + DocumentDepth.capped memories. Independent of `limit`
+    # which is the fallback when no count_override is supplied.
+    base_count: int = 3
     similarity_weight: float = 0.65
     importance_weight: float = 0.25
     recency_weight: float = 0.10

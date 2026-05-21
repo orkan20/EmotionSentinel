@@ -43,14 +43,14 @@ Example: "Nothing is here" — depth 2. ("nothing" opposes "here/present")
 Opposing valence emotions: two emotions of opposite valence coexisting within a clause. Each unique oppositional pair scores +1.
 Example: "I love to hate" — depth 2. ("love" is positive valence, "hate" is negative valence)
 
-Negation: a concept inverted or nullified by a negating term such as "not", "never", "no", "ain't", "without", etc. Each negating instance scores +1.
-Example: "I ain't doing that no way no how" — depth 3. (three separate negating instances)
-Example: "I never said that wasn't untrue" — depth 3. (three negations operating on different levels)
-
 Valence mismatch: a positive valence emotion directed at a negative valence concept, or a negative valence emotion directed at a positive valence concept. Each instance scores +1.
 Example: "I like suffering" — depth 1. ("like" is positive valence directed at "suffering", a negative valence concept)
 
 Valence mismatch applies only when the concept's valence is definitional and unambiguous. Do not assign valence based on cultural convention or common association. "Suffering" is definitionally negative. "Waiting" is not.
+
+Negation: a concept inverted or nullified by a negating term such as "not", "never", "no", "ain't", "without", etc. Each negating instance scores +1.
+Example: "I ain't doing that no way no how" — depth 3. (three separate negating instances)
+Example: "I never said that wasn't untrue" — depth 3. (three negations operating on different levels)
 
 A clause with no logical opposition, no opposing valence emotions, no negation, and no valence mismatch scores 0.
 Example: "The file is in the folder" — depth 0.

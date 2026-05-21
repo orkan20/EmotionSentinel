@@ -42,6 +42,7 @@ class EmotionalMatrix:
     valence: float
     arousal: float
     importance: float
+    embedding: list[float] = field(default_factory=list)
     summary: str = ""
     felt_reason: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
@@ -51,6 +52,7 @@ class EmotionalMatrix:
             "valence": self.valence,
             "arousal": self.arousal,
             "importance": self.importance,
+            "embedding": list(self.embedding),
             "summary": self.summary,
             "felt_reason": self.felt_reason,
         }
@@ -129,7 +131,13 @@ class DocumentMatrix:
     """Container for entire document-level IBRoREM output."""
     matrix_id: Optional[str] = None
     auto_generated: bool = True
-    depth: float = 0.0
+    # `depth` is the integer document depth — the bounded sum of per-clause
+    # depths (capped at DepthConfig.max_doc_depth). This is the value
+    # downstream consumers fetch and the one the retrieval budget uses.
+    depth: int = 0
+    # `depth_raw` is the un-capped sum of per-clause depths. Kept for
+    # transparency / debugging; not the canonical doc-depth.
+    depth_raw: int = 0
     intent: Optional[str] = None
     statement: Optional[str] = None
     clauses: List[ProcessedClauseMatrix] = field(default_factory=list)
